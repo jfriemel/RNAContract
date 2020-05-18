@@ -1,2 +1,11 @@
 # Project exclude paths
 /target/
+/.idea/
+
+*.iml
+
+*.txt
+*.rnac
+*.rep
+*.reptxt
+*.bpseq
