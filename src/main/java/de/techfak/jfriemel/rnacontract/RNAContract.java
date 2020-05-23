@@ -28,11 +28,14 @@ public class RNAContract {
 
     private static long runtime;
 
+    private static boolean debug;
+
     public static void main(String[] args) {
         CommandLineArgs cmdLineArgs = new CommandLineArgs();
         JCommander.newBuilder().addObject(cmdLineArgs).build().parse(args);
 
         boolean statistics = cmdLineArgs.statistics;
+        debug = cmdLineArgs.debug;
 
         String input = cmdLineArgs.input;
         String output = cmdLineArgs.output;
@@ -69,6 +72,9 @@ public class RNAContract {
         runtime = System.currentTimeMillis();
         final String[] rna = Utils.readFile(input);
         final List<Boolean> bits = compress(rna[0], rna[1]);
+        if (debug) {
+            Utils.printBits(bits);
+        }
         Utils.writeBits(output, bits);
         runtime = System.currentTimeMillis() - runtime;
     }
@@ -82,7 +88,11 @@ public class RNAContract {
         runtime = System.currentTimeMillis();
         final List<Boolean> bits = Utils.readBits(input);
         final String[] rna = decompress(bits);
-        Utils.writeFile(output, rna[0] + '\n' + rna[1]);
+        final String text = rna[0] + '\n' + rna[1];
+        if (debug) {
+            System.out.println(text);
+        }
+        Utils.writeFile(output, text);
         runtime = System.currentTimeMillis() - runtime;
 
     }

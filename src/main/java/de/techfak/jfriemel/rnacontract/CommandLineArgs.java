@@ -14,5 +14,7 @@ public class CommandLineArgs {
     String output;
     @Parameter(names = {"--statistics", "-s"}, description = "Print (de-)compression statistics")
     boolean statistics;
+    @Parameter(names = {"--debug", "-db"}, description = "Print debugging information")
+    boolean debug;
 
 }
