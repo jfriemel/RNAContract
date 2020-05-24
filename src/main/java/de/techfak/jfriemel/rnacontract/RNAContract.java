@@ -31,6 +31,7 @@ public class RNAContract {
     private static boolean debug;
 
     public static void main(String[] args) {
+
         CommandLineArgs cmdLineArgs = new CommandLineArgs();
         JCommander.newBuilder().addObject(cmdLineArgs).build().parse(args);
 
@@ -41,16 +42,22 @@ public class RNAContract {
         String output = cmdLineArgs.output;
         if (cmdLineArgs.compress) {
             if (output == null) {
-                output = input.substring(0, input.length() - 4) + ".rnac";
+                output = Utils.swapFileEndings(input, 3, "rnac");
             }
             compressFile(input, output);
             System.out.println("Compression successful. Compressed file at " + output);
         } else if (cmdLineArgs.decompress) {
             if (output == null) {
-                output = input.substring(0, input.length() - 5) + ".txt";
+                output = Utils.swapFileEndings(input, 4, "txt");
             }
             decompressFile(input, output);
             System.out.println("Decompression successful. Decompressed file at " + output);
+        } else if (cmdLineArgs.xml) {
+            if (output == null) {
+                output = Utils.swapFileEndings(input, 3, "xml");
+            }
+            createXML(input, output);
+            System.out.println("XML generation successful. XML file at " + output);
         } else {
             System.out.println("Please use -c for compression and -d for decompression.");
             System.exit(0);
@@ -94,7 +101,24 @@ public class RNAContract {
         }
         Utils.writeFile(output, text);
         runtime = System.currentTimeMillis() - runtime;
+    }
 
+    /**
+     * Creates an XML file representing the contracted tree of a .txt RNA file.
+     *
+     * @param input  Path of the .txt file.
+     * @param output Path of the .xml file to be written.
+     */
+    private static void createXML(final String input, final String output) {
+        runtime = System.currentTimeMillis();
+        final String[] rna = Utils.readFile(input);
+        final Node<String> tree = buildContractedTree(rna[0], rna[1]);
+        final String xml = Utils.generateXML(tree);
+        if (debug) {
+            System.out.println(xml);
+        }
+        Utils.writeFile(output, xml);
+        runtime = System.currentTimeMillis() - runtime;
     }
 
     /**
@@ -218,11 +242,11 @@ public class RNAContract {
      * @param compressedTree Bit sequence of the compressed tree.
      * @return Root node of the decompressed tree.
      */
-    public static Node<String> decompressUnlabeledTree(List<Boolean> compressedTree) {
+    public static Node<String> decompressUnlabeledTree(final List<Boolean> compressedTree) {
         Node<String> current = new Node<>("");
         Node<String> root = current;
         int i = 0;
-        while (current != null) {
+        while (current != null && i < compressedTree.size()) {
             if (compressedTree.get(i)) {
                 Node<String> child = new Node<>("");
                 current.addChild(child);

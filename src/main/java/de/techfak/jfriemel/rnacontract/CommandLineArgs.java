@@ -16,5 +16,7 @@ public class CommandLineArgs {
     boolean statistics;
     @Parameter(names = {"--debug", "-db"}, description = "Print debugging information")
     boolean debug;
+    @Parameter(names = {"--xml", "-x"}, description = "Export the contracted tree in XML format")
+    boolean xml;
 
 }

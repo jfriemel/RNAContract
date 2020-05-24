@@ -218,4 +218,54 @@ public class Utils {
         value *= Long.signum(bytes);
         return String.format("%.1f %ciB", value / 1024.0, ci.current());
     }
+
+    /**
+     * Converts a tree to an XML String.
+     *
+     * @param tree Root of the tree.
+     * @param <T>  Type of the node labels.
+     * @return XML representation of the tree.
+     */
+    public static<T> String generateXML(Node<T> tree) {
+        final StringBuilder xmlBuilder = new StringBuilder();
+        recursiveXMLGenerator(tree, xmlBuilder);
+        return xmlBuilder.toString();
+    }
+
+    /**
+     * Recursively builds an XML String from a tree.
+     *
+     * @param tree       Root of the tree.
+     * @param xmlBuilder StringBuilder for the XML String.
+     * @param <T>        Type of the node labels.
+     */
+    private static<T> void recursiveXMLGenerator(final Node<T> tree, final StringBuilder xmlBuilder) {
+        T label = tree.key;
+        xmlBuilder.append('<');
+        if (tree.children.size() > 0) {
+            xmlBuilder.append(label);
+            xmlBuilder.append('>');
+            for (final Node<T> child : tree.children) {
+                recursiveXMLGenerator(child, xmlBuilder);
+            }
+            xmlBuilder.append("</");
+            xmlBuilder.append(label);
+            xmlBuilder.append('>');
+        } else {
+            xmlBuilder.append(label);
+            xmlBuilder.append("/>");
+        }
+    }
+
+    /**
+     * Exchanges the last 'length' characters of 'path' with 'newEnding'. Used to swap file endings.
+     *
+     * @param path      File path.
+     * @param length    Length of the suffix to be removed.
+     * @param newEnding New suffix to be added.
+     * @return Path with swapped file endings.
+     */
+    public static String swapFileEndings(final String path, final int length, final String newEnding) {
+        return path.substring(0, path.length() - length) + newEnding;
+    }
 }
