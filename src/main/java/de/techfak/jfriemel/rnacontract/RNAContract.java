@@ -3,13 +3,8 @@ package de.techfak.jfriemel.rnacontract;
 import com.beust.jcommander.JCommander;
 
 import java.io.File;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Deque;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.LinkedList;
-import java.util.List;
+import java.text.DecimalFormat;
+import java.util.*;
 
 public class RNAContract {
 
@@ -31,6 +26,8 @@ public class RNAContract {
     private static boolean debug;
 
     public static void main(String[] args) {
+
+        Locale.setDefault(new Locale("en", "GB"));
 
         CommandLineArgs cmdLineArgs = new CommandLineArgs();
         JCommander.newBuilder().addObject(cmdLineArgs).build().parse(args);
@@ -128,9 +125,17 @@ public class RNAContract {
      * @param output Output path of the (de-)compressed file.
      */
     public static void printStatistics(final String input, final String output) {
-        System.out.println("Input file size:  " + Utils.humanReadableByteCount(new File(input).length()));
-        System.out.println("Output file size: " + Utils.humanReadableByteCount(new File(output).length()));
-        System.out.println("(De-)Compression time: " + (double) runtime/1000 + "s");
+        long inputSize = new File(input).length();
+        System.out.println("Input file size:  " + Utils.humanReadableByteCount(inputSize));
+        long outputSize = new File(output).length();
+        System.out.println("Output file size: " + Utils.humanReadableByteCount(outputSize));
+        double ratio = ((double) inputSize) / ((double) outputSize);
+        if (ratio > 1) {
+            ratio = 1 / ratio;
+        }
+        DecimalFormat percentFormat = new DecimalFormat("0.00%");
+        System.out.println("Compression rate: " + percentFormat.format(ratio));
+        System.out.println("Processing time:  " + (double) runtime/1000 + "s");
     }
 
     /**
