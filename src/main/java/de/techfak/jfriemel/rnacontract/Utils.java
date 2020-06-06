@@ -154,48 +154,6 @@ public class Utils {
     }
 
     /**
-     * Converts a list of booleans (bits) to an integer.
-     *
-     * @param bits List of booleans.
-     * @return Integer.
-     */
-    public static int binaryToInt(final List<Boolean> bits) {
-        int result = 0;
-        int power = bits.size() - 1;
-        for (final Boolean bit : bits) {
-            if (bit) {
-                result += 1 << power;
-            }
-            power--;
-        }
-        return result;
-    }
-
-    /**
-     * Converts an integer to a list of booleans (bits).
-     * The integer needs to fit into the specified bit space.
-     *
-     * @param number  Integer.
-     * @param bitSize Number of bits.
-     * @return List of booleans.
-     */
-    public static List<Boolean> intToBinary(int number, int bitSize) {
-        List<Boolean> bits = new ArrayList<>();
-        int powerOf2;
-        while (bitSize > 0) {
-            bitSize--;
-            powerOf2 = 1 << bitSize;
-            if (number >= powerOf2) {
-                bits.add(true);
-                number -= powerOf2;
-            } else {
-                bits.add(false);
-            }
-        }
-        return bits;
-    }
-
-    /**
      * Takes a byte number and makes it humanly readable.
      *
      * @author aioobe

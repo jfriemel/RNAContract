@@ -15,7 +15,7 @@ In order to compile the code, you need Java version 9 or higher. RNAContract als
 | `--statistics`    | `-s`        |          | Print (de-)compression statistics: File sizes, compression rate, processing time.
 
 ## Example
-Say you want to compress the file tRNA.txt, save it as tRNA_c.rnac and you want to know how small the compressed file ends up being. Then you can run the following command:
+Say you want to compress the file tRNA.txt, save it as tRNA_c.rnac, and you want to know how small the compressed file ends up being. Then you can run the following command:
 ```console
 user@example:~$ java -jar RNAContract.jar -c -i tRNA.txt -o tRNA_c.rnac -s
 Compression successful. Compressed file at tRNA_c.rnac

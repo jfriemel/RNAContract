@@ -4,6 +4,10 @@ import java.util.*;
 import java.util.Map.Entry;
 import java.util.stream.Collectors;
 
+/* p : A-U   q : U-A
+ * r : C-G   s : G-C
+ * x : U-G   y : G-U
+ */
 public class HuffmanMaps {
 
     public Map<String, List<Boolean>> unaryC;

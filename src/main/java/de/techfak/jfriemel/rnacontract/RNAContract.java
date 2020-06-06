@@ -8,18 +8,9 @@ import java.util.*;
 
 public class RNAContract {
 
-    /* p : A-U   q : U-A
-     * r : C-G   s : G-C
-     * x : U-G   y : G-U
-     */
-    private static final List<Character> BINARIES = Arrays.asList('p', 'q', 'r', 's', 'x', 'y');
-    private static final List<Character> UNARIES = Arrays.asList('a', 'c', 'g', 'u');
-
     private static final HuffmanMaps HUFFMAN_MAPS = new HuffmanMaps();
 
     private static final Map<Character, char[]> VARIABLE_MAP = new HashMap<>();
-
-    private static final int DELIMITER_BITS = 24;
 
     private static long runtime;
 
@@ -147,21 +138,10 @@ public class RNAContract {
      */
     public static List<Boolean> compress(final String sequence, final String structure) {
         Node<String> tree = buildContractedTree(sequence.toLowerCase(), structure);
-        String[] preorder = preorderContractedUnaryBinary(tree);
-
-        int numberOfBinaries;
-        if (preorder[1].contains(";")) {
-            numberOfBinaries = preorder[1].split(";").length;
-        } else {
-            numberOfBinaries = 0;
-        }
-
         List<Boolean> compression = new ArrayList<>();
 
-        compression.addAll(Utils.intToBinary(numberOfBinaries, DELIMITER_BITS));
         compression.addAll(compressUnlabeledTree(tree));
-        compression.addAll(compressBinaryPreorder(preorder[1]));
-        compression.addAll(compressUnaryPreorder(preorder[0]));
+        compression.addAll(compressLabels(tree));
 
         return compression;
     }
@@ -173,18 +153,15 @@ public class RNAContract {
      * @return Decompressed RNA. 0: Sequence. 1: Structure.
      */
     public static String[] decompress(List<Boolean> compressed) {
-        final List<Boolean> sublist = compressed.subList(0, DELIMITER_BITS);
-        final int numberOfBinaries = Utils.binaryToInt(sublist);
-        sublist.clear();
         final Node<String> tree = decompressUnlabeledTree(compressed);
-        final String binary = decompressBinaryPreorder(compressed, numberOfBinaries);
-        final String unary = decompressUnaryPreorder(compressed);
-        insertLabels(tree, unary, binary);
+
+        decompressLabels(compressed, tree);
+
         return treeToRNA(tree);
     }
 
     /**
-     * Compressed the structure of a given tree into a bit sequence (in this case: list of booleans).
+     * Compresses the structure of a given tree into a bit sequence (in this case: list of booleans).
      *
      * @param <T>  Type of the tree data. Irrelevant in this case as only the structure is compressed.
      * @param tree Root node of the tree.
@@ -200,49 +177,36 @@ public class RNAContract {
     }
 
     /**
-     * Compresses the preorder sequence of the unary nodes of a tree using the conditional Huffman code.
+     * Compresses the labels of a contracted RNA tree into a bit sequence.
      *
-     * @param unary Preorder sequence of the unary node labels.
+     * @param tree Root node of the contracted RNA tree.
      * @return Bit sequence.
      */
-    public static List<Boolean> compressUnaryPreorder(final String unary) {
-        return compressSomePreorder(unary, HUFFMAN_MAPS.getUnaryC());
-    }
-
-    /**
-     * Compresses the preorder sequence of the binary nodes of a tree using the conditional Huffman code.
-     *
-     * @param binary Preorder sequence of the binary node labels.
-     * @return Bit sequence.
-     */
-    public static List<Boolean> compressBinaryPreorder(final String binary) {
-        return compressSomePreorder(binary, HUFFMAN_MAPS.getBinaryC());
-    }
-
-    /**
-     * Compresses the preorder sequence of either unary or binary nodes of a tree using the corresponding conditional
-     * Huffman code.
-     *
-     * @param symbols Preorder sequence of the node labels.
-     * @param huffman Corresponding conditional Huffman code.
-     * @return Bit sequence.
-     */
-    private static List<Boolean> compressSomePreorder(final String symbols, final Map<String, List<Boolean>> huffman) {
-        List<Boolean> result = new ArrayList<>();
-        if (symbols.length() == 0) {
-            return result;
+    public static List<Boolean> compressLabels(final Node<String> tree) {
+        final StringBuilder labelBuilder = new StringBuilder();
+        labelBuilder.append(';');
+        for (final String nodeLabel : tree.getPreorder()) {
+            labelBuilder.append(nodeLabel);
+            labelBuilder.append(';');
         }
-        result.addAll(huffman.get(";" + symbols.charAt(0)));
+        final String labels = labelBuilder.toString();
+        List<Boolean> result = new ArrayList<>();
         String currentPair;
-        for (int i = 0; i < symbols.length() - 1; i++) {
-            currentPair = symbols.substring(i, i + 2);
-            result.addAll(huffman.get(currentPair));
+        Map<String, List<Boolean>> huffmanUnary = HUFFMAN_MAPS.getUnaryC();
+        Map<String, List<Boolean>> huffmanBinary = HUFFMAN_MAPS.getBinaryC();
+        for (int i = 0; i < labels.length() - 1; i++) {
+            currentPair = labels.substring(i, i + 2);
+            if (huffmanUnary.containsKey(currentPair)) {
+                result.addAll(huffmanUnary.get(currentPair));
+            } else if (huffmanBinary.containsKey(currentPair)) {
+                result.addAll(huffmanBinary.get(currentPair));
+            }
         }
         return result;
     }
 
     /**
-     * Decompresses a bit sequence into an unlabeled tree.
+     * Decompresses part of a bit sequence into an unlabeled tree.
      *
      * @param compressedTree Bit sequence of the compressed tree.
      * @return Root node of the decompressed tree.
@@ -269,106 +233,58 @@ public class RNAContract {
     }
 
     /**
-     * Decompresses a bit sequence into a preorder sequence of labels of unary nodes using a conditional Huffman code.
+     * Decompresses a bit sequence into RNA symbols and inserts them into the contracted tree.
      *
-     * @param compressedUnary Bit sequence of the compressed preorder sequence.
-     * @return Preorder sequence.
+     * @param compressed Compressed bit sequence.
+     * @param tree       Root node of the contracted tree.
      */
-    public static String decompressUnaryPreorder(List<Boolean> compressedUnary) {
-        StringBuilder unaryBuilder = new StringBuilder();
-        Map<List<Boolean>, Character> huffman;
-        char previous = ';';
-        Character current;
-        int subSize;
-        List<Boolean> prefix;
-        while (compressedUnary.size() > 0) {
-            huffman = HUFFMAN_MAPS.getUnaryD(previous);
-            subSize = 0;
-            do {
-                subSize++;
-                prefix = compressedUnary.subList(0, subSize);
-                current = huffman.get(prefix);
-            } while (current == null && subSize < compressedUnary.size());
-            if (current == null) {
-                break;
-            }
-            unaryBuilder.append(current);
-            previous = current;
-            prefix.clear();
-        }
-        return unaryBuilder.toString();
-    }
-
-    /**
-     * Decompresses a bit sequence into a preorder sequence of labels of binary nodes using a conditional Huffman code.
-     *
-     * @param compressedBinary Bit sequence of the compressed preorder sequence.
-     * @return Preorder sequence.
-     */
-    public static String decompressBinaryPreorder(List<Boolean> compressedBinary) {
-        return decompressBinaryPreorder(compressedBinary, Integer.MAX_VALUE);
-    }
-
-    /**
-     * Decompresses a bit sequence into a preorder sequence of labels of binary nodes using a conditional Huffman code.
-     * Stops after a given number of nodes.
-     *
-     * @param compressedBinary Bit sequence of the compressed preorder sequence.
-     * @param maxNodes         Maximum number of nodes to be decompressed.
-     * @return Preorder sequence.
-     */
-    public static String decompressBinaryPreorder(List<Boolean> compressedBinary, int maxNodes) {
-        StringBuilder binaryBuilder = new StringBuilder();
-        Map<List<Boolean>, Character> huffman;
-        char previous = ';';
-        Character current;
-        int subSize;
-        List<Boolean> prefix;
-        while (compressedBinary.size() > 1 && maxNodes > 0) {
-            huffman = HUFFMAN_MAPS.getBinaryD(previous);
-            subSize = 1;
-            do {
-                subSize++;
-                prefix = compressedBinary.subList(0, subSize);
-                current = huffman.get(prefix);
-            } while (current == null && subSize < compressedBinary.size());
-            if (current == null) {
-                break;
-            }
-            binaryBuilder.append(current);
-            previous = current;
-            prefix.clear();
-            if (current == ';') {
-                maxNodes--;
-            }
-        }
-        return binaryBuilder.toString();
-    }
-
-    /**
-     * Inserts unary and binary labels into a contracted tree.
-     *
-     * @param tree   Contracted tree.
-     * @param unary  Unary labels.
-     * @param binary Binary labels.
-     */
-    public static void insertLabels(final Node<String> tree, final String unary, final String binary) {
-        final String[] unaryNodes = unary.split(";");
-        final String[] binaryNodes = binary.split(";");
-
-        int unaryIndex = 0;
-        int binaryIndex = 0;
+    public static void decompressLabels(final List<Boolean> compressed, final Node<String> tree) {
         for (final Node<String> node : tree.getPreorderNodes()) {
             if (node.children.size() == 0) {
                 node.key = "e";
             } else if (node.children.size() == 1) {
-                node.key = unaryNodes[unaryIndex];
-                unaryIndex++;
-            } else {
-                node.key = binaryNodes[binaryIndex];
-                binaryIndex++;
+                node.key = decompressNode(compressed, true);
+            } else if (node.children.size() == 2) {
+                node.key = decompressNode(compressed, false);
             }
         }
+    }
+
+    /**
+     * Decompresses the first part of a bit sequence into RNA symbols from a single node.
+     *
+     * @param compressed Compressed bit sequence.
+     * @param unary      True, if the sequence contains unary symbols; False, otherwise.
+     * @return RNA symbols of one node.
+     */
+    private static String decompressNode(final List<Boolean> compressed, final boolean unary) {
+        final StringBuilder seqBuilder = new StringBuilder();
+        Map<List<Boolean>, Character> huffman;
+        char previous = ';';
+        Character current;
+        int subSize;
+        List<Boolean> prefix;
+        while (true) {
+            if (unary) {
+                huffman = HUFFMAN_MAPS.getUnaryD(previous);
+                subSize = 0;
+            } else {
+                huffman = HUFFMAN_MAPS.getBinaryD(previous);
+                subSize = 1;
+            }
+            do {
+                subSize++;
+                prefix = compressed.subList(0, subSize);
+                current = huffman.get(prefix);
+            } while (current == null);
+            prefix.clear();
+            if (current == ';') {
+                break;
+            }
+            seqBuilder.append(current);
+            previous = current;
+        }
+        return seqBuilder.toString();
     }
 
     /**
@@ -531,7 +447,10 @@ public class RNAContract {
         VARIABLE_MAP.put('x', new char[]{'U', 'G'});
         VARIABLE_MAP.put('y', new char[]{'G', 'U'});
         recursiveTreeToRNA(root, seqBuilder, strucBuilder);
-        return new String[]{seqBuilder.toString(), strucBuilder.toString()};
+
+        final String sequence = seqBuilder.toString();
+        final String structure = strucBuilder.toString();
+        return new String[]{sequence, structure};
     }
 
     /**
@@ -565,32 +484,6 @@ public class RNAContract {
             }
             recursiveTreeToRNA(root.children.get(1), seqBuilder, strucBuilder);
         }
-    }
-
-    /**
-     * Generates two preorder sequences for a contracted unary-binary tree.
-     * First sequence: Unary symbols. Second sequence: Binary symbols.
-     * Symbols of different super nodes are separated by ';'.
-     *
-     * @param root Root of the contracted tree.
-     * @return String array with the two sequences.
-     */
-    public static String[] preorderContractedUnaryBinary(final Node<String> root) {
-        List<String> preorder = root.getPreorder();
-        StringBuilder unaryBuilder = new StringBuilder();
-        StringBuilder binaryBuilder = new StringBuilder();
-        char firstSymbol;
-        for (final String symbols : preorder) {
-            firstSymbol = symbols.charAt(0);
-            if (UNARIES.contains(firstSymbol)) {
-                unaryBuilder.append(symbols);
-                unaryBuilder.append(';');
-            } else if (BINARIES.contains(firstSymbol)) {
-                binaryBuilder.append(symbols);
-                binaryBuilder.append(';');
-            }
-        }
-        return new String[]{unaryBuilder.toString(), binaryBuilder.toString()};
     }
 
 }
