@@ -16,6 +16,10 @@ public class RNAContract {
 
     private static boolean debug;
 
+    private static int numberOfNodes = 0;
+    private static int numberOfUnaryNodes = 0;
+    private static int numberOfBinaryNodes = 0;
+
     public static void main(String[] args) {
 
         Locale.setDefault(new Locale("en", "GB"));
@@ -117,7 +121,7 @@ public class RNAContract {
      */
     public static void printStatistics(final String input, final String output) {
         long inputSize = new File(input).length();
-        System.out.println("Input file size:  " + Utils.humanReadableByteCount(inputSize));
+        System.out.println("\nInput file size:  " + Utils.humanReadableByteCount(inputSize));
         long outputSize = new File(output).length();
         System.out.println("Output file size: " + Utils.humanReadableByteCount(outputSize));
         double ratio = ((double) inputSize) / ((double) outputSize);
@@ -126,7 +130,11 @@ public class RNAContract {
         }
         DecimalFormat percentFormat = new DecimalFormat("0.00%");
         System.out.println("Compression rate: " + percentFormat.format(ratio));
-        System.out.println("Processing time:  " + (double) runtime/1000 + "s");
+        System.out.println("Processing time:  " + (double) runtime/1000 + "s\n");
+
+        System.out.println("Total number of nodes:  " + numberOfNodes);
+        System.out.println("Number of unary nodes:  " + numberOfUnaryNodes);
+        System.out.println("Number of binary nodes: " + numberOfBinaryNodes);
     }
 
     /**
@@ -137,8 +145,8 @@ public class RNAContract {
      * @return List of bits.
      */
     public static List<Boolean> compress(final String sequence, final String structure) {
-        Node<String> tree = buildContractedTree(sequence.toLowerCase(), structure);
-        List<Boolean> compression = new ArrayList<>();
+        final Node<String> tree = buildContractedTree(sequence.toLowerCase(), structure);
+        final List<Boolean> compression = new ArrayList<>();
 
         compression.addAll(compressUnlabeledTree(tree));
         compression.addAll(compressLabels(tree));
@@ -152,7 +160,7 @@ public class RNAContract {
      * @param compressed Compressed bit sequence.
      * @return Decompressed RNA. 0: Sequence. 1: Structure.
      */
-    public static String[] decompress(List<Boolean> compressed) {
+    public static String[] decompress(final List<Boolean> compressed) {
         final Node<String> tree = decompressUnlabeledTree(compressed);
 
         decompressLabels(compressed, tree);
@@ -238,26 +246,37 @@ public class RNAContract {
      * @param compressed Compressed bit sequence.
      * @param tree       Root node of the contracted tree.
      */
-    public static void decompressLabels(final List<Boolean> compressed, final Node<String> tree) {
+    public static void decompressLabels(List<Boolean> compressed, final Node<String> tree) {
+        KeyAndIndex kai;
+        int start = 0;
         for (final Node<String> node : tree.getPreorderNodes()) {
+            numberOfNodes++;
             if (node.children.size() == 0) {
                 node.key = "e";
             } else if (node.children.size() == 1) {
-                node.key = decompressNode(compressed, true);
+                numberOfUnaryNodes++;
+                kai = decompressNode(compressed, true, start);
+                node.key = kai.key;
+                start = kai.index;
             } else if (node.children.size() == 2) {
-                node.key = decompressNode(compressed, false);
+                numberOfBinaryNodes++;
+                kai = decompressNode(compressed, false, start);
+                node.key = kai.key;
+                start = kai.index;
             }
         }
+        compressed.clear();
     }
 
     /**
-     * Decompresses the first part of a bit sequence into RNA symbols from a single node.
+     * Decompresses part of a bit sequence into RNA symbols from a single node.
      *
      * @param compressed Compressed bit sequence.
      * @param unary      True, if the sequence contains unary symbols; False, otherwise.
-     * @return RNA symbols of one node.
+     * @param start      Start index of the compressed bit sequence.
+     * @return RNA symbols of one node and new start index of the bit sequence (encapsulated in KeyAndIndex object).
      */
-    private static String decompressNode(final List<Boolean> compressed, final boolean unary) {
+    private static KeyAndIndex decompressNode(List<Boolean> compressed, final boolean unary, int start) {
         final StringBuilder seqBuilder = new StringBuilder();
         Map<List<Boolean>, Character> huffman;
         char previous = ';';
@@ -274,17 +293,17 @@ public class RNAContract {
             }
             do {
                 subSize++;
-                prefix = compressed.subList(0, subSize);
+                prefix = compressed.subList(start, start + subSize);
                 current = huffman.get(prefix);
             } while (current == null);
-            prefix.clear();
+            start += subSize;
             if (current == ';') {
                 break;
             }
             seqBuilder.append(current);
             previous = current;
         }
-        return seqBuilder.toString();
+        return new KeyAndIndex(seqBuilder.toString(), start);
     }
 
     /**
@@ -406,9 +425,11 @@ public class RNAContract {
      */
     private static void copyToContractedTree(final Node<String> contractedRoot, Node<Character> root) {
         Node<String> contractedChild;
+        numberOfNodes++;
         if (root.children.size() == 0) {
             contractedRoot.addChild(new Node<>(root.key.toString()));
         } else if (root.children.size() == 1) {
+            numberOfUnaryNodes++;
             StringBuilder superNodeKeys = new StringBuilder();
             while (root.children.size() == 1) {
                 superNodeKeys.append(root.key.toString());
@@ -418,6 +439,7 @@ public class RNAContract {
             contractedRoot.addChild(contractedChild);
             copyToContractedTree(contractedChild, root);
         } else {
+            numberOfBinaryNodes++;
             StringBuilder contractedNodeKeys = new StringBuilder();
             Node<Character> rightSide = root.children.get(1);
             do {
@@ -486,4 +508,17 @@ public class RNAContract {
         }
     }
 
+}
+
+/**
+ * decompressNode() needs to return two values: The decompressed key and the new start index of the compressed bit list.
+ * Therefore it returns a KeyAndIndex object which contains both values.
+ */
+class KeyAndIndex {
+    public String key;
+    public int index;
+    public KeyAndIndex(final String key, final int index) {
+        this.key = key;
+        this.index = index;
+    }
 }
