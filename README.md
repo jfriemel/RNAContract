@@ -12,7 +12,7 @@ In order to compile the code, you need Java version 9 or higher. RNAContract als
 | `--compress`      | `-c`        |          | Compress the input file.
 | `--decompress`    | `-d`        |          | Decompress the input file.
 | `--xml`           | `-x`        |          | Create a contracted tree and output it in XML format.
-| `--statistics`    | `-s`        |          | Print (de-)compression statistics: File sizes, compression rate, processing time.
+| `--statistics`    | `-s`        |          | Print (de-)compression statistics: File sizes, compression rate, processing time, number of nodes in the contracted tree.
 
 ## Example
 Say you want to compress the file tRNA.txt, save it as tRNA_c.rnac, and you want to know how small the compressed file ends up being. Then you can run the following command:
@@ -23,4 +23,8 @@ Input file size:  146.7 KiB
 Output file size: 24.0 KiB
 Compression rate: 16.39%
 Processing time:  0.167s
+
+Total number of nodes:  15688
+Number of unary nodes:  7247
+Number of binary nodes: 4220
 ```
