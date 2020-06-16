@@ -15,6 +15,7 @@ public class RNAContract {
     private static long runtime;
 
     private static boolean debug;
+    private static boolean alternative;
 
     private static int numberOfNodes = 0;
     private static int numberOfUnaryNodes = 0;
@@ -29,18 +30,27 @@ public class RNAContract {
 
         boolean statistics = cmdLineArgs.statistics;
         debug = cmdLineArgs.debug;
+        alternative = cmdLineArgs.alternative;
 
         String input = cmdLineArgs.input;
         String output = cmdLineArgs.output;
         if (cmdLineArgs.compress) {
             if (output == null) {
-                output = Utils.swapFileEndings(input, 3, "rnac");
+                if (alternative) {
+                    output = Utils.swapFileEndings(input, 3, "rnac2");
+                } else {
+                    output = Utils.swapFileEndings(input, 3, "rnac");
+                }
             }
             compressFile(input, output);
             System.out.println("Compression successful. Compressed file at " + output);
         } else if (cmdLineArgs.decompress) {
             if (output == null) {
-                output = Utils.swapFileEndings(input, 4, "txt");
+                if (alternative) {
+                    output = Utils.swapFileEndings(input, 5, "txt");
+                } else {
+                    output = Utils.swapFileEndings(input, 4, "txt");
+                }
             }
             decompressFile(input, output);
             System.out.println("Decompression successful. Decompressed file at " + output);
@@ -70,7 +80,12 @@ public class RNAContract {
     public static void compressFile(final String input, final String output) {
         runtime = System.currentTimeMillis();
         final String[] rna = Utils.readFile(input);
-        final List<Boolean> bits = compress(rna[0], rna[1]);
+        final List<Boolean> bits;
+        if (alternative) {
+            bits = compressAlternative(rna[0], rna[1]);
+        } else {
+            bits = compress(rna[0], rna[1]);
+        }
         if (debug) {
             Utils.printBits(bits);
         }
@@ -86,7 +101,12 @@ public class RNAContract {
     public static void decompressFile(final String input, final String output) {
         runtime = System.currentTimeMillis();
         final List<Boolean> bits = Utils.readBits(input);
-        final String[] rna = decompress(bits);
+        final String[] rna;
+        if (alternative) {
+            rna = decompressAlternative(bits);
+        } else {
+            rna = decompress(bits);
+        }
         final String text = rna[0] + '\n' + rna[1];
         if (debug) {
             System.out.println(text);
@@ -176,10 +196,10 @@ public class RNAContract {
      * @return Bit sequence.
      */
     public static<T> List<Boolean> compressUnlabeledTree(final Node<T> tree) {
-        final String balancedParentheses = tree.getImbalancedBrackets();
+        final String imbalancedBrackets = tree.getImbalancedBrackets();
         List<Boolean> result = new ArrayList<>();
-        for (int i = 1; i < balancedParentheses.length(); i++) {
-            result.add(balancedParentheses.charAt(i) == '(');
+        for (int i = 1; i < imbalancedBrackets.length(); i++) {
+            result.add(imbalancedBrackets.charAt(i) == '(');
         }
         return result;
     }
@@ -246,7 +266,7 @@ public class RNAContract {
      * @param compressed Compressed bit sequence.
      * @param tree       Root node of the contracted tree.
      */
-    public static void decompressLabels(List<Boolean> compressed, final Node<String> tree) {
+    public static void decompressLabels(final List<Boolean> compressed, final Node<String> tree) {
         KeyAndIndex kai;
         int start = 0;
         for (final Node<String> node : tree.getPreorderNodes()) {
@@ -276,7 +296,7 @@ public class RNAContract {
      * @param start      Start index of the compressed bit sequence.
      * @return RNA symbols of one node and new start index of the bit sequence (encapsulated in KeyAndIndex object).
      */
-    private static KeyAndIndex decompressNode(List<Boolean> compressed, final boolean unary, int start) {
+    private static KeyAndIndex decompressNode(final List<Boolean> compressed, final boolean unary, int start) {
         final StringBuilder seqBuilder = new StringBuilder();
         Map<List<Boolean>, Character> huffman;
         char previous = ';';
@@ -304,6 +324,109 @@ public class RNAContract {
             previous = current;
         }
         return new KeyAndIndex(seqBuilder.toString(), start);
+    }
+
+    /**
+     * An alternative compression method that does not explicitly compress the tree but implicitly by adding marker bits
+     * to the preorder sequence.
+     * This method is not properly documented in the thesis as it achieves basically the same compression rate (only a
+     * slightly fewer bits) but it not as easily extensible.
+     *
+     * @param sequence  RNA sequence.
+     * @param structure RNA secondary structure.
+     * @return Bit sequence, compressed with alternative method.
+     */
+    public static List<Boolean> compressAlternative(final String sequence, final String structure) {
+        final Node<String> tree = buildContractedTree(sequence.toLowerCase(), structure);
+        List<Boolean> bits = new ArrayList<>();
+        Map<String, List<Boolean>> huffmanUnary = HUFFMAN_MAPS.getUnaryC();
+        Map<String, List<Boolean>> huffmanBinary = HUFFMAN_MAPS.getBinaryC();
+        for (final Node<String> node : tree.getPreorderNodes()) {
+            final String label = ';' + node.key + ';';
+            if (node.children.size() == 1) {
+                bits.add(false);
+                for (int i = 0; i < label.length() - 1; i++) {
+                    bits.addAll(huffmanUnary.get(label.substring(i, i + 2)));
+                }
+                bits.add(!node.children.get(0).key.equals("e"));
+            } else if (node.children.size() == 2) {
+                bits.add(true);
+                for (int i = 0; i < label.length() - 1; i++) {
+                    bits.addAll(huffmanBinary.get(label.substring(i, i + 2)));
+                }
+                bits.add(!node.children.get(0).key.equals("e"));
+                bits.add(!node.children.get(1).key.equals("e"));
+            }
+        }
+        return bits;
+    }
+
+    /**
+     * An alternative decompression method that is not properly documented. See JavaDoc for compressAlternative().
+     *
+     * @param compressed Bit sequence, compressed with alternative method.
+     * @return Decompressed RNA. 0: Sequence. 1: Structure.
+     */
+    public static String[] decompressAlternative(final List<Boolean> compressed) {
+        final Node<String> root = new Node<>("");
+        int index = 0;
+        Deque<Node<String>> nodesToDecode = new LinkedList<>();
+        Node<String> current = root;
+        while (index < compressed.size()) {
+            numberOfNodes++;
+            boolean unary = !compressed.get(index++);
+            KeyAndIndex kai = decompressNode(compressed, unary, index);
+            current.key = kai.key;
+            index = kai.index;
+            if (unary) {
+                numberOfUnaryNodes++;
+                Node<String> child = new Node<>("");
+                current.addChild(child);
+                if (compressed.get(index++)) {
+                    current = child;
+                } else {
+                    numberOfNodes++;
+                    child.key = "e";
+                    if (nodesToDecode.isEmpty()) {
+                        break;
+                    } else {
+                        current = nodesToDecode.pop();
+                    }
+                }
+            } else {
+                numberOfBinaryNodes++;
+                Node<String> left = new Node<>("");
+                Node<String> right = new Node<>("");
+                current.addChild(left);
+                current.addChild(right);
+                boolean leftEmpty = true;
+                if (compressed.get(index++)) {
+                    current = left;
+                    leftEmpty = false;
+                } else {
+                    numberOfNodes++;
+                    left.key = "e";
+                }
+                if (compressed.get(index++)) {
+                    if (leftEmpty) {
+                        current = right;
+                    } else {
+                        nodesToDecode.push(right);
+                    }
+                } else {
+                    numberOfNodes++;
+                    right.key = "e";
+                    if (leftEmpty) {
+                        if (!nodesToDecode.isEmpty()) {
+                            current = nodesToDecode.pop();
+                        } else {
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+        return treeToRNA(root);
     }
 
     /**
@@ -507,7 +630,6 @@ public class RNAContract {
             recursiveTreeToRNA(root.children.get(1), seqBuilder, strucBuilder);
         }
     }
-
 }
 
 /**

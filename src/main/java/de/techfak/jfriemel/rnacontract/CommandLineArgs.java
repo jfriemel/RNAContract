@@ -18,5 +18,7 @@ public class CommandLineArgs {
     boolean debug;
     @Parameter(names = {"--xml", "-x"}, description = "Export the contracted tree in XML format")
     boolean xml;
+    @Parameter(names = {"--alt", "-a"}, description = "Use alternative (de-)compression algorithm; not properly documented")
+    boolean alternative;
 
 }
