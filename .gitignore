@@ -6,6 +6,7 @@
 
 *.txt
 *.rnac
+*.rnac2
 *.rep
 *.reptxt
 *.bpseq
