@@ -14,6 +14,7 @@ public class RNAContract {
 
     private static long runtime;
 
+    private static boolean xml;
     private static boolean debug;
     private static boolean alternative;
 
@@ -29,6 +30,7 @@ public class RNAContract {
         JCommander.newBuilder().addObject(cmdLineArgs).build().parse(args);
 
         boolean statistics = cmdLineArgs.statistics;
+        xml = cmdLineArgs.xml;
         debug = cmdLineArgs.debug;
         alternative = cmdLineArgs.alternative;
 
@@ -54,11 +56,11 @@ public class RNAContract {
             }
             decompressFile(input, output);
             System.out.println("Decompression successful. Decompressed file at " + output);
-        } else if (cmdLineArgs.xml) {
+        } else if (xml) {
             if (output == null) {
                 output = Utils.swapFileEndings(input, 3, "xml");
             }
-            createXML(input, output);
+            createXMLFile(input, output);
             System.out.println("XML generation successful. XML file at " + output);
         } else {
             System.out.println("Please use -c for compression and -d for decompression.");
@@ -121,11 +123,10 @@ public class RNAContract {
      * @param input  Path of the .txt file.
      * @param output Path of the .xml file to be written.
      */
-    private static void createXML(final String input, final String output) {
+    private static void createXMLFile(final String input, final String output) {
         runtime = System.currentTimeMillis();
         final String[] rna = Utils.readFile(input);
-        final Node<String> tree = buildContractedTree(rna[0], rna[1]);
-        final String xml = Utils.generateXML(tree);
+        final String xml = createXML(rna[0], rna[1]);
         if (debug) {
             System.out.println(xml);
         }
@@ -149,7 +150,9 @@ public class RNAContract {
             ratio = 1 / ratio;
         }
         DecimalFormat percentFormat = new DecimalFormat("0.00%");
-        System.out.println("Compression rate: " + percentFormat.format(ratio));
+        if (!xml) {
+            System.out.println("Compression rate: " + percentFormat.format(ratio));
+        }
         System.out.println("Processing time:  " + (double) runtime/1000 + "s\n");
 
         System.out.println("Total number of nodes:  " + numberOfNodes);
@@ -186,6 +189,17 @@ public class RNAContract {
         decompressLabels(compressed, tree);
 
         return treeToRNA(tree);
+    }
+
+    /**
+     * Creates an XML string representing the contracted tree from an RNA sequence and its secondary structure.
+     *
+     * @param sequence  RNA sequence.
+     * @param structure RNA secondary structure.
+     * @return XML string.
+     */
+    public static String createXML(final String sequence, final String structure) {
+        return Utils.generateXML(buildContractedTree(sequence.toLowerCase(), structure));
     }
 
     /**
