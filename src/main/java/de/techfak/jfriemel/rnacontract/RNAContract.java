@@ -637,8 +637,8 @@ public class RNAContract {
  * Therefore it returns a KeyAndIndex object which contains both values.
  */
 class KeyAndIndex {
-    public String key;
-    public int index;
+    public final String key;
+    public final int index;
     public KeyAndIndex(final String key, final int index) {
         this.key = key;
         this.index = index;

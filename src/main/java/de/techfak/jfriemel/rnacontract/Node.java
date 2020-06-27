@@ -128,7 +128,7 @@ public class Node<T> {
      *
      * @return Balanced parentheses representation of the tree structure.
      */
-    public String getBrackets() {
+    public String getBalancedBrackets() {
         StringBuilder buffer = new StringBuilder();
         bracketRecursion(buffer, this, true);
         return buffer.toString();
